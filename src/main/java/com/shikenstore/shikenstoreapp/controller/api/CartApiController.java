@@ -1,0 +1,51 @@
+package com.shikenstore.shikenstoreapp.controller.api;
+
+import com.shikenstore.shikenstoreapp.service.CartService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/cart")
+public class CartApiController {
+
+    private final CartService cartService;
+
+    public CartApiController(CartService cartService) {
+        this.cartService = cartService;
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<Map<String, Object>> getCart(@PathVariable Long userId) {
+        Map<String, Object> cart = cartService.getCart(userId);
+        return ResponseEntity.ok(Map.of("success", true, "data", cart));
+    }
+
+    @PostMapping("/{userId}/add")
+    public ResponseEntity<Map<String, Object>> addToCart(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
+        String productId = (String) body.get("productId");
+        int quantity = body.containsKey("quantity") ? ((Number) body.get("quantity")).intValue() : 1;
+        Map<String, Object> cart = cartService.addToCart(userId, productId, quantity);
+        return ResponseEntity.ok(Map.of("success", true, "data", cart, "message", "Item added to cart"));
+    }
+
+    @PutMapping("/{userId}/update")
+    public ResponseEntity<Map<String, Object>> updateCartItem(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
+        Long itemId = ((Number) body.get("itemId")).longValue();
+        int quantity = ((Number) body.get("quantity")).intValue();
+        Map<String, Object> cart = cartService.updateCartItem(userId, itemId, quantity);
+        return ResponseEntity.ok(Map.of("success", true, "data", cart, "message", "Cart updated"));
+    }
+
+    @DeleteMapping("/{userId}/remove/{itemId}")
+    public ResponseEntity<Map<String, Object>> removeFromCart(@PathVariable Long userId, @PathVariable Long itemId) {
+        Map<String, Object> cart = cartService.removeFromCart(userId, itemId);
+        return ResponseEntity.ok(Map.of("success", true, "data", cart, "message", "Item removed"));
+    }
+
+    @DeleteMapping("/{userId}/clear")
+    public ResponseEntity<Map<String, Object>> clearCart(@PathVariable Long userId) {
+        cartService.clearCart(userId);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Cart cleared"));
+    }
+}
