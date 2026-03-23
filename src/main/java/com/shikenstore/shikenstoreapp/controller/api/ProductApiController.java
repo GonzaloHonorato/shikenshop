@@ -64,4 +64,14 @@ public class ProductApiController {
         Product updated = productService.update(id, product);
         return ResponseEntity.ok(Map.of("success", true, "data", updated, "message", "Product updated"));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable String id) {
+        return productService.getById(id)
+                .map(p -> {
+                    productService.delete(id);
+                    return ResponseEntity.ok(Map.of("success", (Object) true, "message", (Object) "Product deleted"));
+                })
+                .orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "Product not found")));
+    }
 }

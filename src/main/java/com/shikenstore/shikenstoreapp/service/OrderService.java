@@ -109,4 +109,9 @@ public class OrderService {
         order.setStatus(status);
         return orderRepository.save(order);
     }
+
+    @Transactional
+    public void delete(String orderNumber) {
+        orderRepository.deleteById(orderNumber);
+    }
 }

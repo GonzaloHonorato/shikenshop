@@ -59,4 +59,14 @@ public class OrderApiController {
         OrderEntity order = orderService.updateStatus(orderNumber, body.get("status"));
         return ResponseEntity.ok(Map.of("success", true, "data", order, "message", "Status updated"));
     }
+
+    @DeleteMapping("/{orderNumber}")
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable String orderNumber) {
+        return orderService.getByOrderNumber(orderNumber)
+                .map(o -> {
+                    orderService.delete(orderNumber);
+                    return ResponseEntity.ok(Map.of("success", (Object) true, "message", (Object) "Order deleted"));
+                })
+                .orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "Order not found")));
+    }
 }

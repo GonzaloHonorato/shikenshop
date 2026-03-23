@@ -45,6 +45,14 @@ public class UserApiController {
         }).orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "User not found")));
     }
 
+    @DeleteMapping("/{email}")
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable String email) {
+        return userService.getByEmail(email).map(user -> {
+            userService.delete(user);
+            return ResponseEntity.ok(Map.of("success", (Object) true, "message", (Object) "User deleted"));
+        }).orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "User not found")));
+    }
+
     private Map<String, Object> stripPassword(User user) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", user.getId());
