@@ -1,10 +1,16 @@
 package com.shikenstore.shikenstoreapp.model;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -56,9 +62,11 @@ public class Product {
     @Column(length = 200)
     private String developer;
 
+    @JsonIgnore
     @Column(length = 200)
     private String platform;
 
+    @JsonIgnore
     @Column(length = 500)
     private String tags;
 
@@ -67,6 +75,36 @@ public class Product {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @JsonGetter("platform")
+    public List<String> getPlatformList() {
+        if (platform == null || platform.isEmpty()) return Collections.emptyList();
+        return Arrays.asList(platform.split(","));
+    }
+
+    @JsonSetter("platform")
+    public void setPlatformFromJson(Object value) {
+        if (value instanceof List<?> list) {
+            this.platform = String.join(",", list.stream().map(Object::toString).toList());
+        } else if (value instanceof String s) {
+            this.platform = s;
+        }
+    }
+
+    @JsonGetter("tags")
+    public List<String> getTagsList() {
+        if (tags == null || tags.isEmpty()) return Collections.emptyList();
+        return Arrays.asList(tags.split(","));
+    }
+
+    @JsonSetter("tags")
+    public void setTagsFromJson(Object value) {
+        if (value instanceof List<?> list) {
+            this.tags = String.join(",", list.stream().map(Object::toString).toList());
+        } else if (value instanceof String s) {
+            this.tags = s;
+        }
+    }
 
     @PrePersist
     protected void onCreate() {

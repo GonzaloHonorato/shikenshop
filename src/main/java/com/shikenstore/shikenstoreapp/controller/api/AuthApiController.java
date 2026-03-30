@@ -25,12 +25,13 @@ public class AuthApiController {
                 .filter(u -> u.getPassword().equals(password) && u.getActive())
                 .map(u -> {
                     String token = Base64.getEncoder().encodeToString((email + ":" + System.currentTimeMillis()).getBytes());
-                    Map<String, Object> userData = new LinkedHashMap<>();
-                    userData.put("id", u.getId());
-                    userData.put("name", u.getName());
-                    userData.put("email", u.getEmail());
-                    userData.put("role", u.getRole());
-                    return ResponseEntity.ok(Map.of("success", (Object) true, "message", (Object) "Login successful", "user", (Object) userData, "token", (Object) token));
+                    Map<String, Object> userData = buildUserData(u);
+                    return ResponseEntity.ok(Map.of(
+                        "success", (Object) true,
+                        "message", (Object) "Login successful",
+                        "user", (Object) userData,
+                        "token", (Object) token
+                    ));
                 })
                 .orElse(ResponseEntity.status(401).body(Map.of("success", false, "message", "Invalid credentials")));
     }
@@ -52,12 +53,37 @@ public class AuthApiController {
         User created = userService.create(user);
         String token = Base64.getEncoder().encodeToString((email + ":" + System.currentTimeMillis()).getBytes());
 
-        Map<String, Object> userData = new LinkedHashMap<>();
-        userData.put("id", created.getId());
-        userData.put("name", created.getName());
-        userData.put("email", created.getEmail());
-        userData.put("role", created.getRole());
-
+        Map<String, Object> userData = buildUserData(created);
         return ResponseEntity.ok(Map.of("success", true, "message", "Registration successful", "user", userData, "token", token));
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<Map<String, Object>> verify(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        if (token == null || token.isEmpty()) {
+            return ResponseEntity.ok(Map.of("success", false));
+        }
+        try {
+            String decoded = new String(Base64.getDecoder().decode(token));
+            String email = decoded.split(":")[0];
+            boolean valid = userService.getByEmail(email).map(User::getActive).orElse(false);
+            return ResponseEntity.ok(Map.of("success", valid));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("success", false));
+        }
+    }
+
+    private Map<String, Object> buildUserData(User u) {
+        Map<String, Object> userData = new LinkedHashMap<>();
+        userData.put("id", u.getId());
+        userData.put("name", u.getName());
+        userData.put("email", u.getEmail());
+        userData.put("role", u.getRole());
+        userData.put("active", u.getActive());
+        userData.put("fullName", u.getFullName() != null ? u.getFullName() : u.getName());
+        userData.put("phone", u.getPhone());
+        userData.put("address", u.getAddress());
+        userData.put("registeredAt", u.getRegisteredAt() != null ? u.getRegisteredAt().toString() : null);
+        return userData;
     }
 }

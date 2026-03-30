@@ -1,6 +1,5 @@
 package com.shikenstore.shikenstoreapp.controller.api;
 
-import com.shikenstore.shikenstoreapp.model.OrderEntity;
 import com.shikenstore.shikenstoreapp.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,45 +17,50 @@ public class OrderApiController {
     }
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAll(@RequestParam(required = false) Long userId) {
-        List<OrderEntity> orders = (userId != null) ? orderService.getByUserId(userId) : orderService.getAll();
-        return ResponseEntity.ok(Map.of("success", true, "data", orders));
+    public ResponseEntity<Map<String, Object>> getAll(@RequestParam(required = false) String userId) {
+        List<Map<String, Object>> orders;
+        if (userId != null && !userId.isEmpty()) {
+            Long uid = orderService.resolveUserId(userId);
+            orders = orderService.getByUserIdFormatted(uid);
+        } else {
+            orders = orderService.getAllFormatted();
+        }
+        return ResponseEntity.ok(Map.of("success", true, "data", orders, "total", orders.size()));
     }
 
     @GetMapping("/{orderNumber}")
     public ResponseEntity<Map<String, Object>> getByOrderNumber(@PathVariable String orderNumber) {
-        return orderService.getByOrderNumber(orderNumber)
+        return orderService.getByOrderNumberFormatted(orderNumber)
                 .map(o -> ResponseEntity.ok(Map.of("success", (Object) true, "data", (Object) o)))
                 .orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "Order not found")));
     }
 
+    @SuppressWarnings("unchecked")
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
-        Long userId = ((Number) body.get("userId")).longValue();
+        // Angular sends userId as string (email)
+        String userIdStr = String.valueOf(body.get("userId"));
+        Long uid = orderService.resolveUserId(userIdStr);
 
-        @SuppressWarnings("unchecked")
-        Map<String, String> shipping = (Map<String, String>) body.get("shippingAddress");
-        @SuppressWarnings("unchecked")
-        Map<String, String> payment = (Map<String, String>) body.get("paymentMethod");
+        // Angular sends shippingAddress as nested object
+        Map<String, Object> shipping = (Map<String, Object>) body.get("shippingAddress");
 
-        OrderEntity order = orderService.createOrder(
-                userId,
-                shipping.get("fullName"),
-                shipping.get("address"),
-                shipping.get("city"),
-                shipping.get("state"),
-                shipping.get("zipCode"),
-                shipping.get("country"),
-                shipping.getOrDefault("phone", null),
-                payment.get("type")
-        );
+        // Angular sends paymentMethod as string (not a map)
+        String paymentType;
+        Object pm = body.get("paymentMethod");
+        if (pm instanceof Map) {
+            paymentType = (String) ((Map<String, Object>) pm).get("type");
+        } else {
+            paymentType = String.valueOf(pm);
+        }
 
+        Map<String, Object> order = orderService.createOrder(uid, shipping, paymentType);
         return ResponseEntity.ok(Map.of("success", true, "data", order, "message", "Order created"));
     }
 
     @PutMapping("/{orderNumber}/status")
     public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable String orderNumber, @RequestBody Map<String, String> body) {
-        OrderEntity order = orderService.updateStatus(orderNumber, body.get("status"));
+        Map<String, Object> order = orderService.updateStatus(orderNumber, body.get("status"));
         return ResponseEntity.ok(Map.of("success", true, "data", order, "message", "Status updated"));
     }
 

@@ -13,37 +13,48 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final CartService cartService;
+    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository, CartItemRepository cartItemRepository,
-                        ProductRepository productRepository, CartService cartService) {
+                        ProductRepository productRepository, CartService cartService,
+                        UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.cartService = cartService;
+        this.userRepository = userRepository;
     }
 
-    public List<OrderEntity> getAll() {
-        return orderRepository.findAll();
+    public Long resolveUserId(String userIdentifier) {
+        try {
+            return Long.parseLong(userIdentifier);
+        } catch (NumberFormatException e) {
+            return userRepository.findByEmail(userIdentifier)
+                    .map(User::getId)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userIdentifier));
+        }
     }
 
-    public List<OrderEntity> getByUserId(Long userId) {
-        return orderRepository.findByUserId(userId);
+    public List<Map<String, Object>> getAllFormatted() {
+        return orderRepository.findAll().stream().map(this::toAngularFormat).toList();
     }
 
-    public Optional<OrderEntity> getByOrderNumber(String orderNumber) {
-        return orderRepository.findByOrderNumber(orderNumber);
+    public List<Map<String, Object>> getByUserIdFormatted(Long userId) {
+        return orderRepository.findByUserId(userId).stream().map(this::toAngularFormat).toList();
+    }
+
+    public Optional<Map<String, Object>> getByOrderNumberFormatted(String orderNumber) {
+        return orderRepository.findByOrderNumber(orderNumber).map(this::toAngularFormat);
     }
 
     @Transactional
-    public OrderEntity createOrder(Long userId, String shippingFullName, String shippingAddress,
-                                    String shippingCity, String shippingState, String shippingZipCode,
-                                    String shippingCountry, String shippingPhone, String paymentType) {
+    public Map<String, Object> createOrder(Long userId, Map<String, Object> shippingAddress,
+                                            String paymentMethod) {
         List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
         if (cartItems.isEmpty()) {
             throw new RuntimeException("Cart is empty");
         }
 
-        // Verify stock
         for (CartItem item : cartItems) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
@@ -52,28 +63,23 @@ public class OrderService {
             }
         }
 
-        // Generate order number
         String orderNumber = "ORD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
-
-        // Calculate total
         int total = cartItems.stream().mapToInt(i -> i.getPrice() * i.getQuantity()).sum();
 
-        // Create order
         OrderEntity order = new OrderEntity();
         order.setOrderNumber(orderNumber);
         order.setUserId(userId);
         order.setTotal(total);
         order.setStatus("pending");
-        order.setShippingFullName(shippingFullName);
-        order.setShippingAddress(shippingAddress);
-        order.setShippingCity(shippingCity);
-        order.setShippingState(shippingState);
-        order.setShippingZipCode(shippingZipCode);
-        order.setShippingCountry(shippingCountry);
-        order.setShippingPhone(shippingPhone);
-        order.setPaymentType(paymentType);
+        order.setShippingFullName((String) shippingAddress.getOrDefault("fullName", ""));
+        order.setShippingAddress((String) shippingAddress.getOrDefault("address", ""));
+        order.setShippingCity((String) shippingAddress.getOrDefault("city", ""));
+        order.setShippingState((String) shippingAddress.getOrDefault("state", ""));
+        order.setShippingZipCode((String) shippingAddress.getOrDefault("zipCode", ""));
+        order.setShippingCountry((String) shippingAddress.getOrDefault("country", ""));
+        order.setShippingPhone((String) shippingAddress.getOrDefault("phone", null));
+        order.setPaymentType(paymentMethod);
 
-        // Create order items and reduce stock
         List<OrderItem> orderItems = new ArrayList<>();
         for (CartItem cartItem : cartItems) {
             OrderItem orderItem = new OrderItem();
@@ -87,7 +93,6 @@ public class OrderService {
             orderItem.setQuantity(cartItem.getQuantity());
             orderItems.add(orderItem);
 
-            // Reduce stock
             Product product = productRepository.findById(cartItem.getProductId()).get();
             product.setStock(product.getStock() - cartItem.getQuantity());
             productRepository.save(product);
@@ -95,23 +100,73 @@ public class OrderService {
         order.setItems(orderItems);
 
         OrderEntity savedOrder = orderRepository.save(order);
-
-        // Clear cart
         cartService.clearCart(userId);
 
-        return savedOrder;
+        return toAngularFormat(savedOrder);
     }
 
     @Transactional
-    public OrderEntity updateStatus(String orderNumber, String status) {
+    public Map<String, Object> updateStatus(String orderNumber, String status) {
         OrderEntity order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         order.setStatus(status);
-        return orderRepository.save(order);
+        return toAngularFormat(orderRepository.save(order));
     }
 
     @Transactional
     public void delete(String orderNumber) {
         orderRepository.deleteById(orderNumber);
+    }
+
+    public Optional<OrderEntity> getByOrderNumber(String orderNumber) {
+        return orderRepository.findByOrderNumber(orderNumber);
+    }
+
+    /**
+     * Converts OrderEntity to Angular's Order interface format:
+     * { orderNumber, items: CartItem[], total, date, status, shippingAddress, paymentMethod, createdAt, updatedAt }
+     */
+    private Map<String, Object> toAngularFormat(OrderEntity order) {
+        // Map OrderItems to Angular CartItem format
+        List<Map<String, Object>> items = order.getItems() != null
+            ? order.getItems().stream().map(item -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id", item.getProductId());
+                map.put("name", item.getProductName());
+                map.put("price", item.getPrice());
+                map.put("originalPrice", item.getOriginalPrice());
+                map.put("discount", item.getDiscount());
+                map.put("image", item.getImage());
+                map.put("quantity", item.getQuantity());
+                map.put("maxStock", 999);
+                return map;
+            }).toList()
+            : Collections.emptyList();
+
+        // Nested shippingAddress
+        Map<String, Object> shippingAddress = new LinkedHashMap<>();
+        shippingAddress.put("fullName", order.getShippingFullName());
+        shippingAddress.put("address", order.getShippingAddress());
+        shippingAddress.put("city", order.getShippingCity());
+        shippingAddress.put("state", order.getShippingState());
+        shippingAddress.put("zipCode", order.getShippingZipCode());
+        shippingAddress.put("country", order.getShippingCountry());
+        shippingAddress.put("phone", order.getShippingPhone());
+
+        // Nested paymentMethod
+        Map<String, Object> paymentMethod = new LinkedHashMap<>();
+        paymentMethod.put("type", order.getPaymentType());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("orderNumber", order.getOrderNumber());
+        result.put("items", items);
+        result.put("total", order.getTotal());
+        result.put("date", order.getCreatedAt() != null ? order.getCreatedAt().toString() : null);
+        result.put("status", order.getStatus());
+        result.put("shippingAddress", shippingAddress);
+        result.put("paymentMethod", paymentMethod);
+        result.put("createdAt", order.getCreatedAt() != null ? order.getCreatedAt().toString() : null);
+        result.put("updatedAt", order.getUpdatedAt() != null ? order.getUpdatedAt().toString() : null);
+        return result;
     }
 }

@@ -1,0 +1,4 @@
+import{a as r}from"./chunk-NVTBXNLI.js";import"./chunk-3M6XASZ3.js";import"./chunk-D56S7MCF.js";import"./chunk-PFYC3GFB.js";import{Ua as o,ib as a,lb as n}from"./chunk-G2FIBZQD.js";var i=class t{categoryConfig={category:"estrategia",title:"Juegos de Estrategia",description:"Pon a prueba tu mente con desaf\xEDos t\xE1cticos y estrat\xE9gicos",icon:`<svg class="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M9 11H7v9a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2h-3V5a2 2 0 00-2-2H9a2 2 0 00-2 2v6z"/>
+      <path d="M9 7h3v2H9V7z"/>
+    </svg>`,gradientFrom:"blue",gradientTo:"indigo",borderColor:"blue-500",accentColor:"green-400"};static \u0275fac=function(e){return new(e||t)};static \u0275cmp=o({type:t,selectors:[["app-estrategia"]],decls:1,vars:1,consts:[[3,"config"]],template:function(e,c){e&1&&n(0,"app-category-base",0),e&2&&a("config",c.categoryConfig)},dependencies:[r],encapsulation:2})};export{i as EstrategiaComponent};

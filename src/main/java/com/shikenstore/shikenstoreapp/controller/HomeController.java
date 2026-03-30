@@ -1,28 +1,23 @@
 package com.shikenstore.shikenstoreapp.controller;
 
-import com.shikenstore.shikenstoreapp.service.ProductService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+/**
+ * SPA fallback controller.
+ * Forwards all non-API, non-static routes to Angular's index.html.
+ * When Angular is built and placed in src/main/resources/static/,
+ * this controller enables client-side routing.
+ */
 @Controller
 public class HomeController {
 
-    private final ProductService productService;
-
-    public HomeController(ProductService productService) {
-        this.productService = productService;
-    }
-
-    @GetMapping({"/", "/inicio"})
-    public String inicio(Model model) {
-        model.addAttribute("featured", productService.getFeatured());
-        model.addAttribute("products", productService.getAllActive());
-        return "inicio";
-    }
-
-    @GetMapping("/login")
-    public String login() {
-        return "login";
+    @GetMapping(value = {
+        "/",
+        "/{path:^(?!api|swagger-ui|v3|assets|.*\\..*).*$}",
+        "/{path:^(?!api|swagger-ui|v3|assets|.*\\..*).*$}/**"
+    })
+    public String forward() {
+        return "forward:/index.html";
     }
 }

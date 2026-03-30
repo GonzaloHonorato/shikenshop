@@ -22,7 +22,7 @@ public class UserApiController {
         List<Map<String, Object>> users = userService.getAll().stream()
                 .map(this::stripPassword)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(Map.of("success", true, "data", users));
+        return ResponseEntity.ok(Map.of("success", true, "data", users, "total", users.size()));
     }
 
     @GetMapping("/{email}")
@@ -45,6 +45,32 @@ public class UserApiController {
         }).orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "User not found")));
     }
 
+    @PutMapping("/{email}/role")
+    public ResponseEntity<Map<String, Object>> updateRole(@PathVariable String email, @RequestBody Map<String, String> body) {
+        return userService.getByEmail(email).map(user -> {
+            String newRole = body.get("role");
+            user.setRole(newRole);
+            User updated = userService.update(user);
+            return ResponseEntity.ok(Map.of("success", (Object) true, "data", (Object) stripPassword(updated), "message", (Object) "Role updated"));
+        }).orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "User not found")));
+    }
+
+    @PutMapping("/{email}/password")
+    public ResponseEntity<Map<String, Object>> changePassword(@PathVariable String email, @RequestBody Map<String, String> body) {
+        return userService.getByEmail(email).map(user -> {
+            String currentPassword = body.get("currentPassword");
+            String newPassword = body.get("newPassword");
+
+            if (!user.getPassword().equals(currentPassword)) {
+                return ResponseEntity.status(400).body(Map.of("success", (Object) false, "message", (Object) "Current password is incorrect"));
+            }
+
+            user.setPassword(newPassword);
+            userService.update(user);
+            return ResponseEntity.ok(Map.of("success", (Object) true, "message", (Object) "Password updated"));
+        }).orElse(ResponseEntity.status(404).body(Map.of("success", false, "error", "User not found")));
+    }
+
     @DeleteMapping("/{email}")
     public ResponseEntity<Map<String, Object>> delete(@PathVariable String email) {
         return userService.getByEmail(email).map(user -> {
@@ -63,7 +89,8 @@ public class UserApiController {
         map.put("fullName", user.getFullName());
         map.put("phone", user.getPhone());
         map.put("address", user.getAddress());
-        map.put("registeredAt", user.getRegisteredAt());
+        map.put("registeredAt", user.getRegisteredAt() != null ? user.getRegisteredAt().toString() : null);
+        map.put("updatedAt", user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null);
         return map;
     }
 }
